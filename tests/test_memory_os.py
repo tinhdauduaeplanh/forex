@@ -7,11 +7,17 @@ from fastapi.testclient import TestClient
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "backend"))
 
+from app.core.config import get_settings
 from app.main import app
 from app.api import routes_memory
 from app.core.runtime import memory_agent
 from backend.app.memory.memory_manager import MemoryManager
 from backend.app.memory.schemas import MemoryQuery, MemoryType
+
+
+def test_default_memory_path_points_to_backend_memory_root():
+    settings = get_settings()
+    assert settings.memory_path == "./backend/app/memory"
 
 
 def test_query_memory_matches_content_and_tags(tmp_path):

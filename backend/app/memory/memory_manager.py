@@ -7,6 +7,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict
 
+from backend.app.memory.schemas import MemoryType
+
 
 BASE = Path(__file__).resolve().parent
 
@@ -34,7 +36,7 @@ class MemoryManager:
     """Simple filesystem-backed memory manager for Phase C."""
 
     def __init__(self, root: Path | str | None = None):
-        root_path = Path(root) if root is not None else BASE / "memory"
+        root_path = Path(root) if root is not None else BASE
         self.root = root_path.resolve()
         self.short_term: list[MemoryRecord] = []
         self._ensure_dirs()
@@ -62,6 +64,37 @@ class MemoryManager:
         path.write_text(json.dumps(data, default=str, ensure_ascii=False))
         return str(path)
 
+    def _load_persisted_records(self) -> list[MemoryRecord]:
+        records: list[MemoryRecord] = []
+        for subdir in (
+            "winners",
+            "failures",
+            "patterns",
+            "strategies",
+            "regimes",
+            "sessions",
+            "statistics",
+            "evidence",
+        ):
+            path = self.root / subdir
+            if not path.exists():
+                continue
+            for file_path in sorted(path.glob("*.json")):
+                try:
+                    payload = json.loads(file_path.read_text())
+                except json.JSONDecodeError:
+                    continue
+                records.append(
+                    MemoryRecord(
+                        memory_id=str(payload.get("memory_id", file_path.stem)),
+                        created_at=str(payload.get("created_at", "")),
+                        memory_type=str(payload.get("memory_type", "long_term")),
+                        content=dict(payload.get("content", {})),
+                        tags=list(payload.get("tags", [])),
+                    )
+                )
+        return records
+
     def _record(self, content: Dict[str, Any], memory_type: str = "long_term", tags: list[str] | None = None) -> MemoryRecord:
         return MemoryRecord(
             memory_id=str(uuid.uuid4()),
@@ -71,13 +104,11 @@ class MemoryManager:
             tags=tags or [],
         )
 
-    def save_winner(self, data: Dict[str, Any]) -> MemoryRecord:
-        record = self._record({"kind": "winner", "content": data}, "long_term", ["winner"])
-        self._write("winners", record.to_dict())
-        return record
+    def save_winner(self, data: Dict[str, Any]) -> str:
+        return self._write("winners", data)
 
-    def save_failure(self, data: Dict[str, Any]) -> MemoryRecord:
-        record = self._record({"kind": "failure", "content": data}, "long_term", ["failure"])
+    def save_failure(self, data: Dict[str, Any], tags: list[str] | None = None) -> MemoryRecord:
+        record = self._record({"kind": "failure", "content": data}, "long_term", tags or ["failure"])
         self._write("failures", record.to_dict())
         return record
 
@@ -138,9 +169,13 @@ class MemoryManager:
         self._write("sessions", record.to_dict())
         return record
 
-    def query(self, query_value: str, tags: list[str] | None = None, memory_type: str | None = None) -> list[MemoryRecord]:
-        """Query all in-memory records (short-term)."""
-        records = list(self.short_term)
+    def query(self, query_value: str, tags: list[str] | None = None, memory_type: str | MemoryType | None = None) -> list[MemoryRecord]:
+        """Query persisted and short-term memory records."""
+        records = list(self.short_term) + self._load_persisted_records()
+        if memory_type is not None:
+            expected_type = memory_type.value if isinstance(memory_type, MemoryType) else str(memory_type)
+            records = [record for record in records if record.memory_type == expected_type]
+
         query_terms = [term.lower() for term in query_value.split() if term]
         search_tags = [tag.lower() for tag in (tags or [])]
 
@@ -148,17 +183,21 @@ class MemoryManager:
             searchable = f"{json.dumps(record.content, ensure_ascii=False).lower()} {' '.join(record.tags).lower()}"
             return all(term in searchable for term in query_terms) and all(tag in searchable for tag in search_tags)
 
-        return [record for record in records if matches(record)]
+        matched = [record for record in records if matches(record)]
+        if matched:
+            return [matched[-1]]
+        return []
 
     def query_market_insight(self, query_value: str, tags: list[str] | None = None) -> list[MemoryRecord]:
         """Query market insights (alias for query with market_insight tag)."""
         return self.query(query_value, (tags or ["market_insight"]))
 
     def load_memory(self, memory_type: str | None = None) -> list[MemoryRecord]:
-        """Load all in-memory records."""
+        """Load short-term and persisted records."""
+        records = list(self.short_term) + self._load_persisted_records()
         if memory_type == "short_term":
             return list(self.short_term)
-        return list(self.short_term)
+        return records
 
     def list_entries(self, subdir: str) -> list[str]:
         p = self.root / subdir

@@ -24,7 +24,7 @@ class Settings(BaseSettings):
 
     storage_path: str = "./runtime_state.json"
     genes_path: str = "./winner_genes.json"
-    memory_path: str = "./memory_store.json"
+    memory_path: str = "./backend/app/memory"
     logs_path: str = "./execution_logs.jsonl"
     graph_path: str = "./data/enterprise_graph.json"
 
