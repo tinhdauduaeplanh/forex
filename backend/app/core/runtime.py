@@ -7,9 +7,6 @@ from app.brain.fsm import FsmBrainAgent
 from app.core.config import get_settings
 from app.core.models import FsmState, RobotState, RobotStatus, WinnerGene
 from app.core.state_store import GeneStore, JsonStateStore
-from app.execution.order_router import ExecutionAdapterAgent
-from app.guard.risk_guard import RiskGuardAgent
-from app.market.mock_market import MockMarketDataAgent
 from app.strategy.hedge_engine import HedgeEngine
 from app.governance import GovernanceManager
 from app.evolution import EvolutionManager
@@ -17,6 +14,9 @@ from app.skills.optimization_engine.gene_search import BacktestOptimizer
 from app.memory import MemoryManager
 from app.skills.shared.memory import list_winner_genes, promote_gene, remember_gene
 from app.identity.identity_manager import IdentityManager
+from backend.app.skills.execution_engine.order_router import ExecutionAdapterAgent
+from backend.app.skills.market_analysis.mock_market import MockMarketDataAgent
+from backend.app.skills.risk_engine.risk_guard import RiskGuardAgent
 from enterprise_graph import EnterpriseGraphManager
 
 settings = get_settings()

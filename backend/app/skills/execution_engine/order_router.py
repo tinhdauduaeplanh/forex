@@ -13,9 +13,9 @@ from app.core.models import Order, OrderStatus
 from backend.app.skills.execution_engine.adapter import build_broker_order_id, determine_order_status
 
 
-class ExecutionEngine:
+class ExecutionAdapterAgent:
     """Execution engine for routing orders to broker."""
-    
+
     def __init__(self, settings: Settings):
         self.settings = settings
         self.log_path = Path(settings.logs_path)
@@ -35,3 +35,9 @@ class ExecutionEngine:
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
         with self.log_path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(payload, default=str) + "\n")
+
+
+class ExecutionEngine(ExecutionAdapterAgent):
+    """Backward-compatible alias for the execution engine wrapper."""
+
+    pass
